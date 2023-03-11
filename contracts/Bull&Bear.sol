@@ -12,6 +12,11 @@ import "@openzeppelin/contracts/utils/Counters.sol";
 import "@chainlink/contracts/src/v0.8/interfaces/AggregatorV3Interface.sol";
 import "@chainlink/contracts/src/v0.8/KeeperCompatible.sol";
 
+// VRF ChainLink Imports
+import "@chainlink/contracts/src/v0.8/interfaces/VRFCoordinatorV2Interface.sol";
+import "@chainlink/contracts/src/v0.8/VRFConsumerBaseV2.sol";
+//import "@chainlink/contracts/src/v0.8/ConfirmedOwner.sol";
+
 //TODO: add random bull/bear selection when bear/bull changes (vrf.chain.link/new)
 
 contract BullBear is
@@ -20,6 +25,7 @@ contract BullBear is
     ERC721URIStorage,
     Ownable,
     KeeperCompatibleInterface
+    /*VRFConsumerBaseV2*/
 {
     using Counters for Counters.Counter;
 
@@ -30,7 +36,46 @@ contract BullBear is
     AggregatorV3Interface public priceFeed;
     int256 public currentPrice;
 
+    struct RequestStatus {
+        bool fulfilled; // whether the request has been successfully fulfilled
+        bool exists; // whether a requestId exists
+        uint256[] randomWords;
+    }
+
+    mapping(uint256 => RequestStatus)
+        public s_requests; /* requestId --> requestStatus */
+    VRFCoordinatorV2Interface COORDINATOR;
+
+    uint64 s_subscriptionId;
+
+    // past requests Id.
+    uint256[] public requestIds;
+    uint256 public lastRequestId;
+
+    // The gas lane to use, which specifies the maximum gas price to bump to.
+    // For a list of available gas lanes on each network,
+    // see https://docs.chain.link/docs/vrf/v2/subscription/supported-networks/#configurations
+    bytes32 keyHash =
+        0x79d3d8832d904592c0bf9818b621522c988bb8b0c05cdc3b15aea1b6e8db0c15;
+
+    // Depends on the number of requested values that you want sent to the
+    // fulfillRandomWords() function. Storing each word costs about 20,000 gas,
+    // so 100,000 is a safe default for this example contract. Test and adjust
+    // this limit based on the network that you select, the size of the request,
+    // and the processing of the callback request in the fulfillRandomWords()
+    // function.
+    uint32 callbackGasLimit = 100000;
+
+    // The default is 3, but you can set this higher.
+    uint16 requestConfirmations = 3;
+
+    // For this example, retrieve 2 random values in one request.
+    // Cannot exceed VRFCoordinatorV2.MAX_NUM_WORDS.
+    uint32 numWords = 2;
+
     event TokensUpdated(string marketTrend);
+    event RequestSent(uint256 requestId, uint32 numWords);
+    event RequestFulfilled(uint256 requestId, uint256[] randomWords);
 
     string[] bullUrisIpfs = [
         "https://cloudflare-ipfs.com/ipfs/QmRXyfi3oNZCubDxiVFre3kLZ8XeGt6pQsnAQRZ7akhSNs",
@@ -44,9 +89,13 @@ contract BullBear is
         "https://cloudflare-ipfs.com/ipfs/QmbKhBXVWmwrYsTPFYfroR2N7NAekAMxHUVg2CWks7i9qj"
     ];
 
-    constructor(uint256 updateInterval, address _priceFeed) ERC721("Bull&Bear", "BBTK") {
+    constructor(uint256 _updateInterval, address _priceFeed/*, uint64 _subscriptionId*/) 
+        ERC721("Bull&Bear", "BBTK") 
+        
+    {
+        //Move above: VRFConsumerBaseV2(0x2Ca8E0C643bDe4C2E08ab1fA0da3401AdAD7734D)
         // Sets the keeper update interval.
-        interval = updateInterval;
+        interval = _updateInterval;
         lastTimeStamp = block.timestamp;
 
         // set the price feed address to
@@ -56,6 +105,13 @@ contract BullBear is
         priceFeed = AggregatorV3Interface(_priceFeed);
 
         currentPrice = getLatestPrice();
+
+        /*
+        COORDINATOR = VRFCoordinatorV2Interface(
+            0x2Ca8E0C643bDe4C2E08ab1fA0da3401AdAD7734D
+        );
+        s_subscriptionId = _subscriptionId;
+        */
     }
 
     function safeMint(address to) public onlyOwner {
@@ -68,8 +124,9 @@ contract BullBear is
         _setTokenURI(tokenId, defaultUri);
     }
 
-    function checkUpkeep(bytes calldata /*checkData*/) external view override returns(bool upkeepNeeded, bytes memory /*performData*/) {
+    function checkUpkeep(bytes calldata /*checkData*/) external view override returns(bool upkeepNeeded, bytes memory performData) {
         upkeepNeeded = (block.timestamp - lastTimeStamp) > interval;
+        performData = "";
     }
 
     function performUpkeep(bytes calldata /*(performData*/) external override {
@@ -158,4 +215,49 @@ contract BullBear is
     ) public view override(ERC721, ERC721Enumerable) returns (bool) {
         return super.supportsInterface(interfaceId);
     }
+
+    /*
+    // Assumes the subscription is funded sufficiently.
+    function requestRandomWords()
+        external
+        onlyOwner
+        returns (uint256 requestId)
+    {
+        // Will revert if subscription is not set and funded.
+        requestId = COORDINATOR.requestRandomWords(
+            keyHash,
+            s_subscriptionId,
+            requestConfirmations,
+            callbackGasLimit,
+            numWords
+        );
+        s_requests[requestId] = RequestStatus({
+            randomWords: new uint256[](0),
+            exists: true,
+            fulfilled: false
+        });
+        requestIds.push(requestId);
+        lastRequestId = requestId;
+        emit RequestSent(requestId, numWords);
+        return requestId;
+    }
+
+    function fulfillRandomWords(
+        uint256 _requestId,
+        uint256[] memory _randomWords
+    ) internal override {
+        require(s_requests[_requestId].exists, "request not found");
+        s_requests[_requestId].fulfilled = true;
+        s_requests[_requestId].randomWords = _randomWords;
+        emit RequestFulfilled(_requestId, _randomWords);
+    }
+
+    function getRequestStatus(
+        uint256 _requestId
+    ) external view returns (bool fulfilled, uint256[] memory randomWords) {
+        require(s_requests[_requestId].exists, "request not found");
+        RequestStatus memory request = s_requests[_requestId];
+        return (request.fulfilled, request.randomWords);
+    }
+    */
 }

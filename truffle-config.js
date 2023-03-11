@@ -60,11 +60,16 @@ module.exports = {
     networks: {
         goerli: {
             provider: () =>
-                HDWalletProvider(
+                new HDWalletProvider(
                     MNEMONIC,
                     `https://eth-goerli.g.alchemy.com/v2/${API_KEY}`
                 ),
             network_id: 5,
+            confirmations: 2, // # of confirmations to wait between deployments. (default: 0)
+            timeoutBlocks: 200, // # of blocks before a deployment times out  (minimum/default: 50)
+            skipDryRun: true, // Skip dry run before migrations? (default: false for public nets )
+            gas: 30000000, // Gas sent with each transaction (default: ~6700000)
+            gasPrice: 10000000000, // 20 gwei (in wei) (default: 100 gwei)
         },
         // Useful for testing. The `development` name is special - truffle uses it by default
         // if it's defined here and no other network is specified at the command line.
