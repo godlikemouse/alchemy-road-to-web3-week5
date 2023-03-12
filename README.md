@@ -19,8 +19,20 @@ The `VRF_SUBSCRIPTION_ID` can be obtained by registering a subscription at https
 
 ### Testing
 
+For local:
+
+    truffle test
+
+For Goerli:
+
     truffle test --network goerli
 
 ### Deployment
 
+For local:
+
     truffle deploy --reset
+
+For Goerli
+
+    truffle deploy --reset --network goerli
