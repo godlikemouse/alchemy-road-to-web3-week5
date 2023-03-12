@@ -7,12 +7,12 @@ const MockVRFCoordinator = artifacts.require("MockVRFCoordinator");
 
 module.exports = function (deployer) {
     deployer.then(async () => {
-        // deploy mock aggregator
-        const aggregator = await deployer.deploy(
-            MockV3Aggregator,
-            8,
-            3034715771688
-        );
+        // deploy mock aggregator or use reall aggregator
+        // depending on network id
+        const aggregator =
+            deployer.network_id == 5
+                ? { address: "0xA39434A63A52E749F02807ae27335515BA4b07F7" }
+                : await deployer.deploy(MockV3Aggregator, 8, 3034715771688);
 
         // deploy mock coordinator or use real coordinator
         // depending on network id
