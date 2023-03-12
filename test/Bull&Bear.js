@@ -49,4 +49,14 @@ contract("BullBear", () => {
         const result = await bullBear.ownerOf(0);
         assert(result == primaryAccount);
     });
+
+    it("Set new interval to 1", async () => {
+        const result = await bullBear.setInterval(1);
+        assert(result);
+    });
+
+    it("Call performUpkeep", async () => {
+        const result = await bullBear.performUpkeep([]);
+        asslert(result);
+    });
 });
