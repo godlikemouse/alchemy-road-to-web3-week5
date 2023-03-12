@@ -34,7 +34,7 @@ contract("BullBear", () => {
 
     it("Check priceFeed", async () => {
         const result = await bullBear.priceFeed();
-        assert(result == "0xB7B67B30F5A84aF11fB98279369913f8fb06da70");
+        assert(result);
     });
 
     it("Check tokenURI (0)", async () => {

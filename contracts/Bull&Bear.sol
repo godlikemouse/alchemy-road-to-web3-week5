@@ -15,17 +15,14 @@ import "@chainlink/contracts/src/v0.8/KeeperCompatible.sol";
 // VRF ChainLink Imports
 import "@chainlink/contracts/src/v0.8/interfaces/VRFCoordinatorV2Interface.sol";
 import "@chainlink/contracts/src/v0.8/VRFConsumerBaseV2.sol";
-//import "@chainlink/contracts/src/v0.8/ConfirmedOwner.sol";
-
-//TODO: add random bull/bear selection when bear/bull changes (vrf.chain.link/new)
 
 contract BullBear is
     ERC721,
     ERC721Enumerable,
     ERC721URIStorage,
     Ownable,
-    KeeperCompatibleInterface
-    /*VRFConsumerBaseV2*/
+    KeeperCompatibleInterface,
+    VRFConsumerBaseV2
 {
     using Counters for Counters.Counter;
 
@@ -52,6 +49,8 @@ contract BullBear is
     uint256[] public requestIds;
     uint256 public lastRequestId;
 
+    uint256 randomValue;
+
     // The gas lane to use, which specifies the maximum gas price to bump to.
     // For a list of available gas lanes on each network,
     // see https://docs.chain.link/docs/vrf/v2/subscription/supported-networks/#configurations
@@ -69,9 +68,9 @@ contract BullBear is
     // The default is 3, but you can set this higher.
     uint16 requestConfirmations = 3;
 
-    // For this example, retrieve 2 random values in one request.
+    // For this example, retrieve 1 random values in one request.
     // Cannot exceed VRFCoordinatorV2.MAX_NUM_WORDS.
-    uint32 numWords = 2;
+    uint32 numWords = 1;
 
     event TokensUpdated(string marketTrend);
     event RequestSent(uint256 requestId, uint32 numWords);
@@ -89,11 +88,10 @@ contract BullBear is
         "https://cloudflare-ipfs.com/ipfs/QmbKhBXVWmwrYsTPFYfroR2N7NAekAMxHUVg2CWks7i9qj"
     ];
 
-    constructor(uint256 _updateInterval, address _priceFeed/*, uint64 _subscriptionId*/) 
+    constructor(uint256 _updateInterval, address _priceFeed, uint64 _subscriptionId, address _vrfCoordinator) 
         ERC721("Bull&Bear", "BBTK") 
-        
+        VRFConsumerBaseV2(_vrfCoordinator)
     {
-        //Move above: VRFConsumerBaseV2(0x2Ca8E0C643bDe4C2E08ab1fA0da3401AdAD7734D)
         // Sets the keeper update interval.
         interval = _updateInterval;
         lastTimeStamp = block.timestamp;
@@ -106,12 +104,11 @@ contract BullBear is
 
         currentPrice = getLatestPrice();
 
-        /*
+        // goerli coordinator address: 0x2Ca8E0C643bDe4C2E08ab1fA0da3401AdAD7734D
         COORDINATOR = VRFCoordinatorV2Interface(
-            0x2Ca8E0C643bDe4C2E08ab1fA0da3401AdAD7734D
+            _vrfCoordinator
         );
         s_subscriptionId = _subscriptionId;
-        */
     }
 
     function safeMint(address to) public onlyOwner {
@@ -130,6 +127,9 @@ contract BullBear is
     }
 
     function performUpkeep(bytes calldata /*(performData*/) external override {
+
+        requestRandomWords();
+
         if((block.timestamp - lastTimeStamp) > interval) {
             lastTimeStamp = block.timestamp;
             int256 latestPrice = getLatestPrice();
@@ -152,12 +152,12 @@ contract BullBear is
     function _updateAllTokenUris(string memory trend) internal {
         if(compareStrings(trend, "bear")) {
              for(uint256 i=0; i<_tokenIdCounter.current(); i++){
-                _setTokenURI(i, bearUrisIpfs[0]);
+                _setTokenURI(i, bearUrisIpfs[randomValue]);
              }
         }
         else {
             for(uint256 i=0; i<_tokenIdCounter.current(); i++){
-                _setTokenURI(i, bullUrisIpfs[0]);
+                _setTokenURI(i, bullUrisIpfs[randomValue]);
              }
         }
 
@@ -215,14 +215,14 @@ contract BullBear is
     ) public view override(ERC721, ERC721Enumerable) returns (bool) {
         return super.supportsInterface(interfaceId);
     }
-
-    /*
+    
     // Assumes the subscription is funded sufficiently.
     function requestRandomWords()
-        external
+        public
         onlyOwner
-        returns (uint256 requestId)
+        returns (uint256 requestId) 
     {
+
         // Will revert if subscription is not set and funded.
         requestId = COORDINATOR.requestRandomWords(
             keyHash,
@@ -231,14 +231,11 @@ contract BullBear is
             callbackGasLimit,
             numWords
         );
-        s_requests[requestId] = RequestStatus({
-            randomWords: new uint256[](0),
-            exists: true,
-            fulfilled: false
-        });
+
         requestIds.push(requestId);
         lastRequestId = requestId;
         emit RequestSent(requestId, numWords);
+        
         return requestId;
     }
 
@@ -246,9 +243,17 @@ contract BullBear is
         uint256 _requestId,
         uint256[] memory _randomWords
     ) internal override {
-        require(s_requests[_requestId].exists, "request not found");
+        if(!s_requests[_requestId].exists){
+            s_requests[_requestId] = RequestStatus({
+                randomWords: new uint256[](0),
+                exists: true,
+                fulfilled: false
+            });
+        }
+        
         s_requests[_requestId].fulfilled = true;
         s_requests[_requestId].randomWords = _randomWords;
+        randomValue = _randomWords[0] % 3;
         emit RequestFulfilled(_requestId, _randomWords);
     }
 
@@ -259,5 +264,5 @@ contract BullBear is
         RequestStatus memory request = s_requests[_requestId];
         return (request.fulfilled, request.randomWords);
     }
-    */
+    
 }
