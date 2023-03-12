@@ -150,15 +150,17 @@ contract BullBear is
     }
 
     function _updateAllTokenUris(string memory trend) internal {
+        string[] memory urisIpfs;
+
         if(compareStrings(trend, "bear")) {
-             for(uint256 i=0; i<_tokenIdCounter.current(); i++){
-                _setTokenURI(i, bearUrisIpfs[randomValue]);
-             }
+             urisIpfs = bearUrisIpfs;
         }
         else {
-            for(uint256 i=0; i<_tokenIdCounter.current(); i++){
-                _setTokenURI(i, bullUrisIpfs[randomValue]);
-             }
+            urisIpfs = bullUrisIpfs;
+        }
+
+        for(uint256 i=0; i<_tokenIdCounter.current(); i++){
+            _setTokenURI(i, bearUrisIpfs[randomValue]);
         }
 
         emit TokensUpdated(trend);
@@ -250,7 +252,7 @@ contract BullBear is
                 fulfilled: false
             });
         }
-        
+
         s_requests[_requestId].fulfilled = true;
         s_requests[_requestId].randomWords = _randomWords;
         randomValue = _randomWords[0] % 3;
